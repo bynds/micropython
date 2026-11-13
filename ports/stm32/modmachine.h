@@ -23,19 +23,24 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#ifndef MICROPY_INCLUDED_STMHAL_MODMACHINE_H
-#define MICROPY_INCLUDED_STMHAL_MODMACHINE_H
+#ifndef MICROPY_INCLUDED_STM32_MODMACHINE_H
+#define MICROPY_INCLUDED_STM32_MODMACHINE_H
 
 #include "py/obj.h"
 
 void machine_init(void);
+void machine_deinit(void);
+void machine_i2s_init0();
+void machine_pwm_deinit_all(void);
+#if MICROPY_PY_MACHINE_MEM_BACKUP
+void machine_mem_backup_init(void);
+#endif
 
 MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(machine_info_obj);
-MP_DECLARE_CONST_FUN_OBJ_0(machine_unique_id_obj);
-MP_DECLARE_CONST_FUN_OBJ_0(machine_reset_obj);
-MP_DECLARE_CONST_FUN_OBJ_0(machine_bootloader_obj);
-MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(machine_freq_obj);
-MP_DECLARE_CONST_FUN_OBJ_0(machine_sleep_obj);
-MP_DECLARE_CONST_FUN_OBJ_0(machine_deepsleep_obj);
 
-#endif // MICROPY_INCLUDED_STMHAL_MODMACHINE_H
+MP_DECLARE_CONST_FUN_OBJ_0(machine_disable_irq_obj);
+MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(machine_enable_irq_obj);
+
+MP_DECLARE_CONST_FUN_OBJ_0(pyb_irq_stats_obj);
+
+#endif // MICROPY_INCLUDED_STM32_MODMACHINE_H

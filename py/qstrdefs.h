@@ -24,6 +24,8 @@
  * THE SOFTWARE.
  */
 
+// *FORMAT-OFF*
+
 #include "py/mpconfig.h"
 
 // All the qstr definitions in this file are available as constants.
@@ -37,12 +39,23 @@ Q()
 Q(*)
 Q(_)
 Q(/)
+#if MICROPY_PY_SYS_PS1_PS2
+Q(>>> )
+Q(... )
+#endif
+#if MICROPY_PY_BUILTINS_STR_OP_MODULO
 Q(%#o)
 Q(%#x)
+#else
+Q({:#o})
+Q({:#x})
+#endif
 Q({:#b})
 Q( )
 Q(\n)
+#if MICROPY_STACK_CHECK
 Q(maximum recursion depth exceeded)
+#endif
 Q(<module>)
 Q(<lambda>)
 Q(<listcomp>)
@@ -52,3 +65,20 @@ Q(<genexpr>)
 Q(<string>)
 Q(<stdin>)
 Q(utf-8)
+
+#if MICROPY_MODULE_FROZEN
+Q(.frozen)
+#endif
+
+#if MICROPY_VFS_ROM && MICROPY_VFS_ROM_IOCTL
+Q(/rom)
+Q(/rom/lib)
+#endif
+
+#if MICROPY_ENABLE_PYSTACK
+Q(pystack exhausted)
+#endif
+
+#if MICROPY_PY_TSTRINGS
+Q(string.templatelib)
+#endif

@@ -1,11 +1,11 @@
 # test the micropython.kbd_intr() function
 
-import micropython
-
 try:
+    import micropython
+
     micropython.kbd_intr
-except AttributeError:
-    print('SKIP')
+except (ImportError, AttributeError):
+    print("SKIP")
     raise SystemExit
 
 # just check we can actually call it

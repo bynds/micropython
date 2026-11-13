@@ -23,8 +23,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#ifndef MICROPY_INCLUDED_STMHAL_IRQ_H
-#define MICROPY_INCLUDED_STMHAL_IRQ_H
+#ifndef MICROPY_INCLUDED_STM32_IRQ_H
+#define MICROPY_INCLUDED_STM32_IRQ_H
+
+// Use this macro together with NVIC_SetPriority to indicate that an IRQn is non-negative,
+// which helps the compiler optimise the resulting inline function.
+#define IRQn_NONNEG(pri) ((pri) & 0x7f)
 
 // these states correspond to values from query_irq, enable_irq and disable_irq
 #define IRQ_STATE_DISABLED (0x00000001)
@@ -35,7 +39,12 @@
 #define IRQ_ENABLE_STATS (0)
 
 #if IRQ_ENABLE_STATS
-extern uint32_t irq_stats[FPU_IRQn + 1];
+#if defined(STM32H7)
+#define IRQ_STATS_MAX   (256)
+#else
+#define IRQ_STATS_MAX   (128)
+#endif
+extern uint32_t irq_stats[IRQ_STATS_MAX];
 #define IRQ_ENTER(irq) ++irq_stats[irq]
 #define IRQ_EXIT(irq)
 #else
@@ -43,11 +52,26 @@ extern uint32_t irq_stats[FPU_IRQn + 1];
 #define IRQ_EXIT(irq)
 #endif
 
-static inline mp_uint_t query_irq(void) {
+// We have inlined IRQ functions for efficiency (they are generally
+// 1 machine instruction).
+//
+// Note on IRQ state: you should not need to know the specific
+// value of the state variable, but rather just pass the return
+// value from disable_irq back to enable_irq.
+
+static inline uint32_t query_irq(void) {
     return __get_PRIMASK();
 }
 
-// enable_irq and disable_irq are defined inline in mpconfigport.h
+static inline void enable_irq(mp_uint_t state) {
+    __set_PRIMASK(state);
+}
+
+static inline mp_uint_t disable_irq(void) {
+    mp_uint_t state = __get_PRIMASK();
+    __disable_irq();
+    return state;
+}
 
 #if __CORTEX_M >= 0x03
 
@@ -70,12 +94,18 @@ static inline void restore_irq_pri(uint32_t basepri) {
     __set_BASEPRI(basepri);
 }
 
-#endif
+#else
 
-MP_DECLARE_CONST_FUN_OBJ_0(pyb_wfi_obj);
-MP_DECLARE_CONST_FUN_OBJ_0(pyb_disable_irq_obj);
-MP_DECLARE_CONST_FUN_OBJ_VAR_BETWEEN(pyb_enable_irq_obj);
-MP_DECLARE_CONST_FUN_OBJ_0(pyb_irq_stats_obj);
+static inline uint32_t raise_irq_pri(uint32_t pri) {
+    return disable_irq();
+}
+
+// "state" should be the value returned from raise_irq_pri
+static inline void restore_irq_pri(uint32_t state) {
+    enable_irq(state);
+}
+
+#endif
 
 // IRQ priority definitions.
 //
@@ -83,8 +113,8 @@ MP_DECLARE_CONST_FUN_OBJ_0(pyb_irq_stats_obj);
 //
 // The default priority grouping is set to NVIC_PRIORITYGROUP_4 in the
 // HAL_Init function. This corresponds to 4 bits for the priority field
-// and 0 bits for the sub-priority field (which means that for all intensive
-// purposes that the sub-priorities below are ignored).
+// and 0 bits for the sub-priority field (which means that for all intents
+// and purposes, the sub-priorities below are ignored).
 //
 // While a given interrupt is being processed, only higher priority (lower number)
 // interrupts will preempt a given interrupt. If sub-priorities are active
@@ -98,55 +128,69 @@ MP_DECLARE_CONST_FUN_OBJ_0(pyb_irq_stats_obj);
 // The following interrupts are arranged from highest priority to lowest
 // priority to make it a bit easier to figure out.
 
-//                           Priority   Sub-Priority
-//                           --------   ------------
-//#def  IRQ_PRI_SYSTICK         0
-//#def  IRQ_SUBPRI_SYSTICK                  0
+#if __CORTEX_M == 0
+
+#define IRQ_PRI_SYSTICK         0
+#define IRQ_PRI_UART            1
+#define IRQ_PRI_SDIO            1
+#define IRQ_PRI_DMA             1
+#define IRQ_PRI_FLASH           2
+#define IRQ_PRI_OTG_FS          2
+#define IRQ_PRI_OTG_HS          2
+#define IRQ_PRI_TIM4            2
+#define IRQ_PRI_TIM5            2
+#define IRQ_PRI_CAN             2
+#define IRQ_PRI_TIMX            2
+#define IRQ_PRI_EXTINT          2
+#define IRQ_PRI_PENDSV          3
+#define IRQ_PRI_RTC_WKUP        3
+
+#else
+
+#define IRQ_PRI_SYSTICK         NVIC_EncodePriority(NVIC_PRIORITYGROUP_4, 0, 0)
 
 // The UARTs have no FIFOs, so if they don't get serviced quickly then characters
 // get dropped. The handling for each character only consumes about 0.5 usec
-#define IRQ_PRI_UART            1
-#define IRQ_SUBPRI_UART                     0
-
-// Flash IRQ must be higher priority than interrupts of all those components
-// that rely on the flash storage.
-#define IRQ_PRI_FLASH           2
-#define IRQ_SUBPRI_FLASH                    0
+#define IRQ_PRI_UART            NVIC_EncodePriority(NVIC_PRIORITYGROUP_4, 1, 0)
 
 // SDIO must be higher priority than DMA for SDIO DMA transfers to work.
-#define IRQ_PRI_SDIO            4
-#define IRQ_SUBPRI_SDIO                     0
+#define IRQ_PRI_SDIO            NVIC_EncodePriority(NVIC_PRIORITYGROUP_4, 4, 0)
+
+// SPI must be higher priority than DMA for SPI DMA transfers to work.
+#define IRQ_PRI_SPI             NVIC_EncodePriority(NVIC_PRIORITYGROUP_4, 4, 0)
 
 // DMA should be higher priority than USB, since USB Mass Storage calls
 // into the sdcard driver which waits for the DMA to complete.
-#define IRQ_PRI_DMA             5
-#define IRQ_SUBPRI_DMA                      0
+#define IRQ_PRI_DMA             NVIC_EncodePriority(NVIC_PRIORITYGROUP_4, 5, 0)
 
-#define IRQ_PRI_OTG_FS          6
-#define IRQ_SUBPRI_OTG_FS                   0
+// Flash IRQ (used for flushing storage cache) must be at the same priority as
+// the USB IRQs, so that the IRQ priority can be raised to this level to disable
+// both the USB and cache flushing, when storage transfers are in progress.
+#define IRQ_PRI_FLASH           NVIC_EncodePriority(NVIC_PRIORITYGROUP_4, 6, 0)
 
-#define IRQ_PRI_OTG_HS          6
-#define IRQ_SUBPRI_OTG_HS                   0
+#define IRQ_PRI_OTG_FS          NVIC_EncodePriority(NVIC_PRIORITYGROUP_4, 6, 0)
+#define IRQ_PRI_OTG_HS          NVIC_EncodePriority(NVIC_PRIORITYGROUP_4, 6, 0)
+#define IRQ_PRI_TIM4            NVIC_EncodePriority(NVIC_PRIORITYGROUP_4, 6, 0)
+#define IRQ_PRI_TIM5            NVIC_EncodePriority(NVIC_PRIORITYGROUP_4, 6, 0)
 
-#define IRQ_PRI_TIM5            6
-#define IRQ_SUBPRI_TIM5                     0
+#define IRQ_PRI_CAN             NVIC_EncodePriority(NVIC_PRIORITYGROUP_4, 7, 0)
 
-#define IRQ_PRI_CAN             7
-#define IRQ_SUBPRI_CAN                      0
+#define IRQ_PRI_SUBGHZ_RADIO    NVIC_EncodePriority(NVIC_PRIORITYGROUP_4, 8, 0)
+
+#define IRQ_PRI_HSEM            NVIC_EncodePriority(NVIC_PRIORITYGROUP_4, 10, 0)
+
+#define IRQ_PRI_I2C             NVIC_EncodePriority(NVIC_PRIORITYGROUP_4, 12, 0)
 
 // Interrupt priority for non-special timers.
-#define IRQ_PRI_TIMX            13
-#define IRQ_SUBPRI_TIMX                     0
+#define IRQ_PRI_TIMX            NVIC_EncodePriority(NVIC_PRIORITYGROUP_4, 13, 0)
 
-#define IRQ_PRI_EXTINT          14
-#define IRQ_SUBPRI_EXTINT                   0
+#define IRQ_PRI_EXTINT          NVIC_EncodePriority(NVIC_PRIORITYGROUP_4, 14, 0)
 
 // PENDSV should be at the lowst priority so that other interrupts complete
 // before exception is raised.
-#define IRQ_PRI_PENDSV          15
-#define IRQ_SUBPRI_PENDSV                   0
+#define IRQ_PRI_PENDSV          NVIC_EncodePriority(NVIC_PRIORITYGROUP_4, 15, 0)
+#define IRQ_PRI_RTC_WKUP        NVIC_EncodePriority(NVIC_PRIORITYGROUP_4, 15, 0)
 
-#define IRQ_PRI_RTC_WKUP        15
-#define IRQ_SUBPRI_RTC_WKUP                 0
+#endif
 
-#endif // MICROPY_INCLUDED_STMHAL_IRQ_H
+#endif // MICROPY_INCLUDED_STM32_IRQ_H

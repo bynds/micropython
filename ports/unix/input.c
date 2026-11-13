@@ -24,6 +24,7 @@
  * THE SOFTWARE.
  */
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,7 +35,7 @@
 #include "input.h"
 
 #if MICROPY_USE_READLINE == 1
-#include "lib/mp-readline/readline.h"
+#include "shared/readline/readline.h"
 #endif
 
 #if MICROPY_USE_READLINE == 0
@@ -42,6 +43,7 @@ char *prompt(char *p) {
     // simple read string
     static char buf[256];
     fputs(p, stdout);
+    fflush(stdout);
     char *s = fgets(buf, sizeof(buf), stdin);
     if (!s) {
         return NULL;
@@ -59,7 +61,7 @@ char *prompt(char *p) {
 #endif
 
 void prompt_read_history(void) {
-#if MICROPY_USE_READLINE_HISTORY
+    #if MICROPY_USE_READLINE_HISTORY
     #if MICROPY_USE_READLINE == 1
     readline_init0(); // will clear history pointers
     char *home = getenv("HOME");
@@ -74,6 +76,9 @@ void prompt_read_history(void) {
                 char c;
                 int sz = read(fd, &c, 1);
                 if (sz < 0) {
+                    if (errno == EINTR) {
+                        continue;
+                    }
                     break;
                 }
                 if (sz == 0 || c == '\n') {
@@ -91,14 +96,17 @@ void prompt_read_history(void) {
         vstr_clear(&vstr);
     }
     #endif
-#endif
+    #endif
 }
 
 void prompt_write_history(void) {
-#if MICROPY_USE_READLINE_HISTORY
+    #if MICROPY_USE_READLINE_HISTORY
     #if MICROPY_USE_READLINE == 1
     char *home = getenv("HOME");
     if (home != NULL) {
+        if (MP_STATE_THREAD(gc_lock_depth) != 0) {
+            return;
+        }
         vstr_t vstr;
         vstr_init(&vstr, 50);
         vstr_printf(&vstr, "%s/.micropython.history", home);
@@ -107,15 +115,15 @@ void prompt_write_history(void) {
             for (int i = MP_ARRAY_SIZE(MP_STATE_PORT(readline_hist)) - 1; i >= 0; i--) {
                 const char *line = MP_STATE_PORT(readline_hist)[i];
                 if (line != NULL) {
-                    int res;
-                    res = write(fd, line, strlen(line));
-                    res = write(fd, "\n", 1);
-                    (void)res;
+                    while (write(fd, line, strlen(line)) == -1 && errno == EINTR) {
+                    }
+                    while (write(fd, "\n", 1) == -1 && errno == EINTR) {
+                    }
                 }
             }
             close(fd);
         }
     }
     #endif
-#endif
+    #endif
 }

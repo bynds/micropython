@@ -8,8 +8,8 @@ To do this we must first edit the ``boot.py`` file to change the USB
 configuration.  If you have not yet touched your ``boot.py`` file then it
 will look something like this::
 
-    # boot.py -- run on boot-up
-    # can run arbitrary Python, but best to keep it minimal
+    # boot.py -- run on boot to configure USB and filesystem
+    # Put app code in main.py
 
     import pyb
     #pyb.main('main.py') # main script to run after this one
@@ -39,14 +39,15 @@ Sending mouse events by hand
 
 To get the py-mouse to do anything we need to send mouse events to the PC.
 We will first do this manually using the REPL prompt.  Connect to your
-pyboard using your serial program and type the following::
+pyboard using your serial program and type the following (no need to type
+the ``#`` and text following it)::
 
     >>> hid = pyb.USB_HID()
-    >>> hid.send((0, 10, 0, 0))
+    >>> hid.send((0, 100, 0, 0)) # (button status, x-direction, y-direction, scroll)
 
-Your mouse should move 10 pixels to the right!  In the command above you
-are sending 4 pieces of information: button status, x, y and scroll.  The
-number 10 is telling the PC that the mouse moved 10 pixels in the x direction.
+Your mouse should move 100 pixels to the right!  In the command above you
+are sending 4 pieces of information: **button status**, **x-direction**, **y-direction**, and **scroll**.  The
+number 100 is telling the PC that the mouse moved 100 pixels in the x direction.
 
 Let's make the mouse oscillate left and right::
 
@@ -119,7 +120,7 @@ minus sign in front of the y-coordinate in the ``hid.send()`` line above.
 Restoring your pyboard to normal
 --------------------------------
 
-If you leave your pyboard as-is, it'll behave as a mouse everytime you plug
+If you leave your pyboard as-is, it'll behave as a mouse every time you plug
 it in.  You probably want to change it back to normal.  To do this you need
 to first enter safe mode (see above), and then edit the ``boot.py`` file.
 In the ``boot.py`` file, comment out (put a # in front of) the line with the

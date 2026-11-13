@@ -1,5 +1,11 @@
 # test syntax errors
 
+try:
+    exec
+except NameError:
+    print("SKIP")
+    raise SystemExit
+
 def test_syntax(code):
     try:
         exec(code)
@@ -76,12 +82,11 @@ test_syntax("break")
 test_syntax("continue")
 
 # must be in a function
-test_syntax("return")
 test_syntax("yield")
 test_syntax("nonlocal a")
 test_syntax("await 1")
 
-# error on uPy, warning on CPy
+# error on MPy, warning on CPy
 #test_syntax("def f():\n a = 1\n global a")
 
 # default except must be last
@@ -93,7 +98,7 @@ test_syntax("f(1=2)")
 # non-keyword after keyword
 test_syntax("f(a=1, 2)")
 
-# doesn't error on uPy but should
+# doesn't error on MPy but should
 #test_syntax("f(1, i for i in i)")
 
 # all elements of dict/set must be pairs or singles

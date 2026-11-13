@@ -5,6 +5,7 @@
  *
  * Copyright (c) 2013, 2014 Damien P. George
  * Copyright (c) 2016-2017 Linaro Limited
+ * Copyright (c) 2020 NXP
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -28,33 +29,81 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <zephyr.h>
+#include <zephyr/kernel.h>
+#include <zephyr/version.h>
 #ifdef CONFIG_NETWORKING
-#include <net/net_context.h>
+#include <zephyr/net/net_context.h>
 #endif
 
+#ifdef CONFIG_USB_DEVICE_STACK
+#include <zephyr/usb/usb_device.h>
+#endif
+
+#include <zephyr/storage/flash_map.h>
+
+#ifdef CONFIG_MICROPY_GETCHAR_CONSOLE_SUBSYS
+#include <zephyr/console/console.h>
+
+#if CONFIG_CONSOLE_GETCHAR_BUFSIZE < 512
+#warning A Console getchar buffer size over 512 bytes is recommended to handle fast input
+#endif
+
+#else
+#include "src/zephyr_getchar.h"
+#endif
+
+#include "py/mperrno.h"
+#include "py/builtin.h"
 #include "py/compile.h"
 #include "py/runtime.h"
 #include "py/repl.h"
 #include "py/gc.h"
-#include "py/stackctrl.h"
-#include "lib/utils/pyexec.h"
-#include "lib/mp-readline/readline.h"
+#include "py/mphal.h"
+#include "shared/runtime/gchelper.h"
+#include "shared/runtime/pyexec.h"
+#include "shared/readline/readline.h"
+#include "extmod/modbluetooth.h"
+#include "extmod/modmachine.h"
 
-#ifdef TEST
-#include "lib/upytesthelper/upytesthelper.h"
-#include "lib/tinytest/tinytest.c"
-#include "lib/upytesthelper/upytesthelper.c"
-#include TEST
+#if MICROPY_VFS
+#include "extmod/vfs.h"
 #endif
 
-static char *stack_top;
-static char heap[MICROPY_HEAP_SIZE];
+#if MICROPY_ENABLE_GC
+#if MICROPY_GC_SPLIT_HEAP && DT_HAS_COMPAT_STATUS_OKAY(micropython_heap)
+
+#include <zephyr/linker/devicetree_regions.h>
+
+#define MICROPY_HEAP_NAME(node) CONCAT(DT_NODE_FULL_NAME_TOKEN(node), _heap)
+
+#define MICROPY_HEAP_DEFINE(node) \
+    static char MICROPY_HEAP_NAME(node)[DT_PROP(node, size)] \
+    Z_GENERIC_SECTION(LINKER_DT_NODE_REGION_NAME(DT_PROP(node, memory_region)));
+
+DT_FOREACH_STATUS_OKAY(micropython_heap, MICROPY_HEAP_DEFINE)
+
+#define MICROPY_HEAP_ADD(node) \
+    gc_add((void *)&MICROPY_HEAP_NAME(node), \
+    (void *)&(MICROPY_HEAP_NAME(node)[DT_PROP(node, size) - 1]));
+
+#elif DT_HAS_COMPAT_STATUS_OKAY(micropython_heap)
+#error Has additional Heap but split heap is not enabled
+#endif
+#endif
+
+#include "modmachine.h"
+#include "modzephyr.h"
+
+static __noinit char heap[MICROPY_HEAP_SIZE];
+
+#if defined(CONFIG_USB_DEVICE_STACK_NEXT)
+extern int mp_usbd_init(void);
+#endif // defined(CONFIG_USB_DEVICE_STACK_NEXT)
 
 void init_zephyr(void) {
     // We now rely on CONFIG_NET_APP_SETTINGS to set up bootstrap
     // network addresses.
-#if 0
+    #if 0
     #ifdef CONFIG_NETWORKING
     if (net_if_get_default() == NULL) {
         // If there's no default networking interface,
@@ -75,37 +124,66 @@ void init_zephyr(void) {
     static struct in6_addr in6addr_my = {{{0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}}};
     net_if_ipv6_addr_add(net_if_get_default(), &in6addr_my, NET_ADDR_MANUAL, 0);
     #endif
-#endif
+    #endif
 }
 
-int real_main(void) {
-    int stack_dummy;
-    stack_top = (char*)&stack_dummy;
-    mp_stack_set_top(stack_top);
-    // Make MicroPython's stack limit somewhat smaller than full stack available
-    mp_stack_set_limit(CONFIG_MAIN_STACK_SIZE - 512);
+int main(void) {
+    /* Initialize terminal device */
+    #ifdef CONFIG_MICROPY_GETCHAR_CONSOLE_SUBSYS
+    console_init();
+    /* Always immediately hand control back to micropython */
+    console_set_rx_timeout(K_NO_WAIT);
+    console_set_tx_timeout(K_NO_WAIT);
+    #elif CONFIG_MICROPY_GETCHAR_CONSOLE_DRIVER
+    zephyr_getchar_init();
+    #else
+    #error A getchar driver must be chosen
+    #endif
+
+    #if MICROPY_PY_THREAD
+    struct k_thread *z_thread = (struct k_thread *)k_current_get();
+    mp_thread_init((void *)z_thread->stack_info.start, z_thread->stack_info.size / sizeof(uintptr_t));
+    #endif
 
     init_zephyr();
-
-    #ifdef TEST
-    static const char *argv[] = {"test"};
-    upytest_set_heap(heap, heap + sizeof(heap));
-    int r = tinytest_main(1, argv, groups);
-    printf("status: %d\n", r);
-    return 0;
-    #endif
+    mp_hal_init();
 
 soft_reset:
+    mp_cstack_init_with_sp_here(CONFIG_MAIN_STACK_SIZE);
     #if MICROPY_ENABLE_GC
     gc_init(heap, heap + sizeof(heap));
+    #if MICROPY_GC_SPLIT_HEAP && DT_HAS_COMPAT_STATUS_OKAY(micropython_heap)
+    DT_FOREACH_STATUS_OKAY(micropython_heap, MICROPY_HEAP_ADD)
+    #endif
     #endif
     mp_init();
-    mp_obj_list_init(mp_sys_path, 0);
-    mp_obj_list_append(mp_sys_path, MP_OBJ_NEW_QSTR(MP_QSTR_)); // current dir (or base dir of the script)
-    mp_obj_list_init(mp_sys_argv, 0);
 
-    #if MICROPY_MODULE_FROZEN
-    pyexec_frozen_module("main.py");
+    #ifdef CONFIG_USB_DEVICE_STACK
+    usb_enable(NULL);
+    #endif
+
+    #ifdef CONFIG_USB_DEVICE_STACK_NEXT
+    mp_usbd_init();
+    #endif
+
+    #if MICROPY_VFS && MICROPY_MODULE_FROZEN_MPY
+    // Mount and/or create the filesystem
+    pyexec_frozen_module("_boot.py", false);
+    #endif
+
+
+    #if MICROPY_MODULE_FROZEN || MICROPY_VFS
+    // Execute user scripts.
+    int ret = pyexec_file_if_exists("boot.py");
+    if (ret & PYEXEC_FORCED_EXIT) {
+        goto soft_reset_exit;
+    }
+    if (pyexec_mode_kind == PYEXEC_MODE_FRIENDLY_REPL && ret != 0) {
+        ret = pyexec_file_if_exists("main.py");
+        if (ret & PYEXEC_FORCED_EXIT) {
+            goto soft_reset_exit;
+        }
+    }
     #endif
 
     for (;;) {
@@ -120,26 +198,51 @@ soft_reset:
         }
     }
 
-    printf("soft reboot\n");
+    #if MICROPY_MODULE_FROZEN_MPY || MICROPY_VFS
+soft_reset_exit:
+    #endif
+
+    mp_printf(MP_PYTHON_PRINTER, "MPY: soft reboot\n");
+
+    #if MICROPY_PY_BLUETOOTH
+    mp_bluetooth_deinit();
+    #endif
+    #if MICROPY_PY_MACHINE
+    machine_pin_deinit();
+    #endif
+    #if MICROPY_PY_MACHINE_I2C_TARGET
+    mp_machine_i2c_target_deinit_all();
+    #endif
+
+    #if MICROPY_PY_THREAD
+    mp_thread_deinit();
+    gc_collect();
+    #endif
+
+    gc_sweep_all();
+    mp_deinit();
+
     goto soft_reset;
 
     return 0;
 }
 
 void gc_collect(void) {
-    // WARNING: This gc_collect implementation doesn't try to get root
-    // pointers from CPU registers, and thus may function incorrectly.
-    void *dummy;
     gc_collect_start();
-    gc_collect_root(&dummy, ((mp_uint_t)stack_top - (mp_uint_t)&dummy) / sizeof(mp_uint_t));
+    gc_helper_collect_regs_and_stack();
+    #if MICROPY_PY_THREAD
+    mp_thread_gc_others();
+    #endif
     gc_collect_end();
-    //gc_dump_info();
 }
 
-mp_lexer_t *mp_lexer_new_from_file(const char *filename) {
+#if !MICROPY_READER_VFS
+mp_lexer_t *mp_lexer_new_from_file(qstr filename) {
     mp_raise_OSError(ENOENT);
 }
+#endif
 
+#if !MICROPY_VFS
 mp_import_stat_t mp_import_stat(const char *path) {
     return MP_IMPORT_STAT_NO_EXIST;
 }
@@ -148,9 +251,12 @@ mp_obj_t mp_builtin_open(size_t n_args, const mp_obj_t *args, mp_map_t *kwargs) 
     return mp_const_none;
 }
 MP_DEFINE_CONST_FUN_OBJ_KW(mp_builtin_open_obj, 1, mp_builtin_open);
+#endif
 
-NORETURN void nlr_jump_fail(void *val) {
-    while (1);
+MP_NORETURN void nlr_jump_fail(void *val) {
+    while (1) {
+        ;
+    }
 }
 
 #ifndef NDEBUG

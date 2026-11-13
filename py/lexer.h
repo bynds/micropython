@@ -44,6 +44,9 @@ typedef enum _mp_token_kind_t {
     MP_TOKEN_INVALID,
     MP_TOKEN_DEDENT_MISMATCH,
     MP_TOKEN_LONELY_STRING_OPEN,
+    #if MICROPY_PY_FSTRINGS
+    MP_TOKEN_MALFORMED_FSTRING,
+    #endif
 
     MP_TOKEN_NEWLINE,
     MP_TOKEN_INDENT,
@@ -96,25 +99,46 @@ typedef enum _mp_token_kind_t {
     MP_TOKEN_KW_WITH,
     MP_TOKEN_KW_YIELD,
 
+    MP_TOKEN_OP_ASSIGN,
+    MP_TOKEN_OP_TILDE,
+
+    // Order of these 6 matches corresponding mp_binary_op_t operator
+    MP_TOKEN_OP_LESS,
+    MP_TOKEN_OP_MORE,
+    MP_TOKEN_OP_DBL_EQUAL,
+    MP_TOKEN_OP_LESS_EQUAL,
+    MP_TOKEN_OP_MORE_EQUAL,
+    MP_TOKEN_OP_NOT_EQUAL,
+
+    // Order of these 13 matches corresponding mp_binary_op_t operator
+    MP_TOKEN_OP_PIPE,
+    MP_TOKEN_OP_CARET,
+    MP_TOKEN_OP_AMPERSAND,
+    MP_TOKEN_OP_DBL_LESS,
+    MP_TOKEN_OP_DBL_MORE,
     MP_TOKEN_OP_PLUS,
     MP_TOKEN_OP_MINUS,
     MP_TOKEN_OP_STAR,
-    MP_TOKEN_OP_DBL_STAR,
-    MP_TOKEN_OP_SLASH,
+    MP_TOKEN_OP_AT,
     MP_TOKEN_OP_DBL_SLASH,
+    MP_TOKEN_OP_SLASH,
     MP_TOKEN_OP_PERCENT,
-    MP_TOKEN_OP_LESS,
-    MP_TOKEN_OP_DBL_LESS,
-    MP_TOKEN_OP_MORE,
-    MP_TOKEN_OP_DBL_MORE,
-    MP_TOKEN_OP_AMPERSAND,
-    MP_TOKEN_OP_PIPE,
-    MP_TOKEN_OP_CARET,
-    MP_TOKEN_OP_TILDE,
-    MP_TOKEN_OP_LESS_EQUAL,
-    MP_TOKEN_OP_MORE_EQUAL,
-    MP_TOKEN_OP_DBL_EQUAL,
-    MP_TOKEN_OP_NOT_EQUAL,
+    MP_TOKEN_OP_DBL_STAR,
+
+    // Order of these 13 matches corresponding mp_binary_op_t operator
+    MP_TOKEN_DEL_PIPE_EQUAL,
+    MP_TOKEN_DEL_CARET_EQUAL,
+    MP_TOKEN_DEL_AMPERSAND_EQUAL,
+    MP_TOKEN_DEL_DBL_LESS_EQUAL,
+    MP_TOKEN_DEL_DBL_MORE_EQUAL,
+    MP_TOKEN_DEL_PLUS_EQUAL,
+    MP_TOKEN_DEL_MINUS_EQUAL,
+    MP_TOKEN_DEL_STAR_EQUAL,
+    MP_TOKEN_DEL_AT_EQUAL,
+    MP_TOKEN_DEL_DBL_SLASH_EQUAL,
+    MP_TOKEN_DEL_SLASH_EQUAL,
+    MP_TOKEN_DEL_PERCENT_EQUAL,
+    MP_TOKEN_DEL_DBL_STAR_EQUAL,
 
     MP_TOKEN_DEL_PAREN_OPEN,
     MP_TOKEN_DEL_PAREN_CLOSE,
@@ -126,21 +150,10 @@ typedef enum _mp_token_kind_t {
     MP_TOKEN_DEL_COLON,
     MP_TOKEN_DEL_PERIOD,
     MP_TOKEN_DEL_SEMICOLON,
-    MP_TOKEN_DEL_AT,
     MP_TOKEN_DEL_EQUAL,
-    MP_TOKEN_DEL_PLUS_EQUAL,
-    MP_TOKEN_DEL_MINUS_EQUAL,
-    MP_TOKEN_DEL_STAR_EQUAL,
-    MP_TOKEN_DEL_SLASH_EQUAL,
-    MP_TOKEN_DEL_DBL_SLASH_EQUAL,
-    MP_TOKEN_DEL_PERCENT_EQUAL,
-    MP_TOKEN_DEL_AMPERSAND_EQUAL,
-    MP_TOKEN_DEL_PIPE_EQUAL,
-    MP_TOKEN_DEL_CARET_EQUAL,
-    MP_TOKEN_DEL_DBL_MORE_EQUAL,
-    MP_TOKEN_DEL_DBL_LESS_EQUAL,
-    MP_TOKEN_DEL_DBL_STAR_EQUAL,
     MP_TOKEN_DEL_MINUS_MORE,
+
+    MP_TOKEN_NUMBER_OF,
 } mp_token_kind_t;
 
 // this data structure is exposed for efficiency
@@ -149,7 +162,8 @@ typedef struct _mp_lexer_t {
     qstr source_name;           // name of source
     mp_reader_t reader;         // stream source
 
-    unichar chr0, chr1, chr2;   // current cached characters from source
+    uint32_t chr0;              // first cached byte from source (32-bits for efficient access)
+    uint8_t chr1, chr2;         // subsequent cached bytes from source
 
     size_t line;                // current source line
     size_t column;              // current source column
@@ -165,31 +179,25 @@ typedef struct _mp_lexer_t {
     size_t tok_column;          // token source column
     mp_token_kind_t tok_kind;   // token kind
     vstr_t vstr;                // token data
+    #if MICROPY_PY_FSTRINGS
+    vstr_t inject_chrs;         // characters currently being injected into the stream
+    size_t inject_chrs_idx;     // current index into inject_chrs
+    vstr_t fstring_args;        // extracted arguments to pass to .format()
+    #endif
 } mp_lexer_t;
 
 mp_lexer_t *mp_lexer_new(qstr src_name, mp_reader_t reader);
 mp_lexer_t *mp_lexer_new_from_str_len(qstr src_name, const char *str, size_t len, size_t free_len);
 
-void mp_lexer_free(mp_lexer_t *lex);
-void mp_lexer_to_next(mp_lexer_t *lex);
-
-/******************************************************************/
-// platform specific import function; must be implemented for a specific port
-// TODO tidy up, rename, or put elsewhere
-
-//mp_lexer_t *mp_import_open_file(qstr mod_name);
-
-typedef enum {
-    MP_IMPORT_STAT_NO_EXIST,
-    MP_IMPORT_STAT_DIR,
-    MP_IMPORT_STAT_FILE,
-} mp_import_stat_t;
-
-mp_import_stat_t mp_import_stat(const char *path);
-mp_lexer_t *mp_lexer_new_from_file(const char *filename);
+// If MICROPY_READER_POSIX or MICROPY_READER_VFS aren't enabled then
+// this function must be implemented by the port.
+mp_lexer_t *mp_lexer_new_from_file(qstr filename);
 
 #if MICROPY_HELPER_LEXER_UNIX
 mp_lexer_t *mp_lexer_new_from_fd(qstr filename, int fd, bool close_fd);
 #endif
+
+void mp_lexer_free(mp_lexer_t *lex);
+void mp_lexer_to_next(mp_lexer_t *lex);
 
 #endif // MICROPY_INCLUDED_PY_LEXER_H

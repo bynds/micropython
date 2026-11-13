@@ -38,12 +38,6 @@ class Cud():
     def __floordiv__(self, other):
         print("__floordiv__ called")
 
-    def __index__(self, other):
-        print("__index__ called")
-
-    def __inv__(self):
-        print("__inv__ called")
-
     def __invert__(self):
         print("__invert__ called")
 
@@ -94,6 +88,9 @@ class Cud():
         print("__isub__ called")
         return self
 
+    def __dir__(self):
+        return ['a', 'b', 'c']
+
 cud1 = Cud()
 cud2 = Cud()
 
@@ -108,37 +105,21 @@ except TypeError:
 -cud1
 ~cud1
 cud1 * cud2
+cud1 @ cud2
 cud1 / cud2
 cud2 // cud1
 cud1 += cud2
 cud1 -= cud2
+cud1 % 2
+cud1 ** 2
+cud1 | cud2
+cud1 & cud2
+cud1 ^ cud2
+cud1 << 1
+cud1 >> 1
 
-# TODO: the following operations are not supported on every ports
-#
-# ne is not supported, !(eq) is called instead
-#cud1 != cud2
-#
-# binary and is not supported
-# cud1 & cud2
-#
-# binary lshift is not supported
-# cud1<<1
-#
-# modulus is not supported
-# cud1 % 2
-#
-# binary or is not supported
-# cud1 | cud2
-#
-# pow is not supported
-# cud1**2
-#
-# rshift is not suported
-# cud1>>1
-#
-# xor is not supported
-# cud1^cud2
-#
-# in the followin test, cpython still calls __eq__
-# cud3=cud1
-# cud3==cud1
+# test that dir() delegates to __dir__ special method
+print(dir(cud1))
+
+# test that dir() does not delegate to __dir__ for the type
+print('a' in dir(Cud))

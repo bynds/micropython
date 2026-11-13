@@ -1,3 +1,9 @@
+try:
+    bytes.count
+except AttributeError:
+    print("SKIP")
+    raise SystemExit
+
 print(b"".count(b""))
 print(b"".count(b"a"))
 print(b"a".count(b""))
@@ -23,6 +29,7 @@ print(b"aaa".count(b"", 2))
 print(b"aaa".count(b"", 3))
 
 print(b"aaa".count(b"", 1, 2))
+print(b"aaa".count(b"", 2, 1))
 
 print(b"asdfasdfaaa".count(b"asdf", -100))
 print(b"asdfasdfaaa".count(b"asdf", -8))
@@ -41,6 +48,13 @@ print(b"aaaa".count(b'a', 0, 5))
 print(b"aaaa".count(b'a', 1, 5))
 print(b"aaaa".count(b'a', -1, 5))
 print(b"abbabba".count(b"abba"))
+
+print(b'\xaa \xaa'.count(b'\xaa'))
+print(b'\xaa \xaa \xaa \xaa'.count(b'\xaa'))
+print(b'\xaa \xaa \xaa \xaa'.count(b'\xaa'), 1)
+print(b'\xaa \xaa \xaa \xaa'.count(b'\xaa'), 2)
+print(b'\xaa \xaa \xaa \xaa'.count(b'\xaa'), 1, 3)
+print(b'\xaa \xaa \xaa \xaa'.count(b'\xaa'), 2, 3)
 
 def t():
     return True

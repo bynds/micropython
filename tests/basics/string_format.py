@@ -22,7 +22,17 @@ test("{:4o}", 123)
 test("{:4x}", 123)
 test("{:4X}", 123)
 
+test("{:4,d}", 1)
+test("{:4_d}", 1)
+test("{:4_o}", 1)
+test("{:4_b}", 1)
+test("{:4_x}", 1)
+
 test("{:4,d}", 12345678)
+test("{:4_d}", 12345678)
+test("{:4_o}", 12345678)
+test("{:4_b}", 12345678)
+test("{:4_x}", 12345678)
 
 test("{:#4b}", 10)
 test("{:#4o}", 123)
@@ -62,6 +72,12 @@ test("{:06d}",  -123)
 test("{:>20}", "foo")
 test("{:^20}", "foo")
 test("{:<20}", "foo")
+
+# formatting bool as int
+test('{:d}', False)
+test('{:20}', False)
+test('{:d}', True)
+test('{:20}', True)
 
 # nested format specifiers
 print("{:{}}".format(123, '#>10'))

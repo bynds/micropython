@@ -1,8 +1,12 @@
 # test memoryview accessing maximum values for signed/unsigned elements
 try:
-    from array import array
     memoryview
 except:
+    print("SKIP")
+    raise SystemExit
+try:
+    from array import array
+except ImportError:
     print("SKIP")
     raise SystemExit
 

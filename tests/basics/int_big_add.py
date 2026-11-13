@@ -1,7 +1,13 @@
 # tests transition from small to large int representation by addition
+# requires: int-big
 
 # 31-bit overflow
 i = 0x3fffffff
+print(i + i)
+print(-i + -i)
+
+# 47-bit overflow
+i = 0x3fffffffffff
 print(i + i)
 print(-i + -i)
 

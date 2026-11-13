@@ -37,12 +37,6 @@ class Cud():
     def __floordiv__(self, other):
         print("__floordiv__ called")
 
-    def __index__(self, other):
-        print("__index__ called")
-
-    def __inv__(self):
-        print("__inv__ called")
-
     def __invert__(self):
         print("__invert__ called")
 
@@ -93,10 +87,17 @@ class Cud():
         print("__isub__ called")
         return self
 
+    def __int__(self):
+        return 42
+
 cud1 = Cud()
 cud2 = Cud()
 
 str(cud1)
+cud1 == cud1
+cud1 == cud2
+cud1 != cud1
+cud1 != cud2
 cud1 < cud2
 cud1 <= cud2
 cud1 == cud2
@@ -104,5 +105,16 @@ cud1 >= cud2
 cud1 > cud2
 cud1 + cud2
 cud1 - cud2
+print(int(cud1))
+
+class BadInt:
+    def __int__(self):
+        print("__int__ called")
+        return None
+
+try:
+    int(BadInt())
+except TypeError:
+    print("TypeError")
 
 # more in special_methods2.py

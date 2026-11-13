@@ -1,7 +1,10 @@
 # Extended float comparisons
+# requires: float
+
 
 class Foo:
     pass
+
 
 foo = Foo()
 

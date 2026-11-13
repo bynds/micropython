@@ -1,4 +1,6 @@
 # test constant optimisation
+# This test will only work when MICROPY_COMP_CONST is enabled.
+# requires: const
 
 from micropython import const
 
@@ -7,8 +9,10 @@ Y = const(X + 456)
 
 print(X, Y + 1)
 
+
 def f():
     print(X, Y + 1)
+
 
 f()
 
@@ -17,9 +21,11 @@ _Y = const(_X + 34)
 
 print(_X, _Y)
 
+
 class A:
     Z = const(1)
     _Z = const(2)
     print(Z, _Z)
 
-print(hasattr(A, 'Z'), hasattr(A, '_Z'))
+
+print(hasattr(A, "Z"), hasattr(A, "_Z"))

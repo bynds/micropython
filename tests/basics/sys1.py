@@ -1,7 +1,6 @@
 # test sys module
 
 import sys
-
 print(sys.__name__)
 print(type(sys.path))
 print(type(sys.argv))
@@ -19,12 +18,35 @@ except AttributeError:
     # Effectively skip subtests
     print(True)
 
-try:
-    raise SystemExit
-except SystemExit as e:
-    print("SystemExit", e.args)
+if hasattr(sys.implementation, '_mpy'):
+    print(type(sys.implementation._mpy))
+else:
+    # Effectively skip subtests
+    print(int)
+
+if hasattr(sys.implementation, '_build'):
+    print(type(sys.implementation._build))
+else:
+    # Effectively skip subtests
+    print(str)
+
+if hasattr(sys.implementation, '_thread'):
+    print(sys.implementation._thread in ("GIL", "unsafe"))
+else:
+    # Effectively skip subtests
+    print(True)
 
 try:
-    sys.exit(42)
-except SystemExit as e:
-    print("SystemExit", e.args)
+    print(sys.intern('micropython') == 'micropython')
+    has_intern = True
+except AttributeError:
+    has_intern = False
+    print(True)
+
+if has_intern:
+    try:
+        print(sys.intern(0))
+    except TypeError:
+        print(True)
+else:
+    print(True)

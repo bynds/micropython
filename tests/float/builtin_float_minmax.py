@@ -1,4 +1,6 @@
 # test builtin min and max functions with float args
+# requires: float
+
 try:
     min
     max
@@ -29,4 +31,3 @@ print(min([1, 2.9, 4, 6.5, -1, 2]))
 print(max([1, 2.9, 4, 6.5, -1, 2]))
 print(min([1, 2.9, 4, -6.5, -1, 2]))
 print(max([1, 2.9, 4, -6.5, -1, 2]))
-

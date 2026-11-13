@@ -3,7 +3,7 @@
  *
  * The MIT License (MIT)
  *
- * Copyright (c) 2013, 2014 Damien P. George
+ * Copyright (c) 2013-2026 Damien P. George
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,44 +24,56 @@
  * THE SOFTWARE.
  */
 
-#include <string.h>
-
-#include "py/obj.h"
+#include "py/mphal.h"
+#include "py/runtime.h"
 #include "rng.h"
 
 #if MICROPY_HW_ENABLE_RNG
 
-/// \moduleref pyb
+#define RNG_TIMEOUT_MS (10)
+#define RNG_RETRY_MAX_COUNT (10)
 
-STATIC RNG_HandleTypeDef RNGHandle = {.Instance = NULL};
-
-void rng_init0(void) {
-    // reset the RNG handle
-    memset(&RNGHandle, 0, sizeof(RNG_HandleTypeDef));
-    RNGHandle.Instance = RNG;
-}
-
-void rng_init(void) {
-    __RNG_CLK_ENABLE();
-    HAL_RNG_Init(&RNGHandle);
-}
-
-uint32_t rng_get(void) {
-    if (RNGHandle.State == HAL_RNG_STATE_RESET) {
-        rng_init();
+uint32_t mp_hal_get_hw_random_u32(void) {
+    // Enable the RNG peripheral if it's not already enabled
+    if (!(RNG->CR & RNG_CR_RNGEN)) {
+        #if defined(STM32H7)
+        // Set RNG Clock source
+        __HAL_RCC_PLLCLKOUT_ENABLE(RCC_PLL1_DIVQ);
+        __HAL_RCC_RNG_CONFIG(RCC_RNGCLKSOURCE_PLL);
+        #endif
+        __HAL_RCC_RNG_CLK_ENABLE();
+        RNG->CR |= RNG_CR_RNGEN;
     }
-    return HAL_RNG_GetRandomNumber(&RNGHandle);
-}
 
-/// \function rng()
-/// Return a 30-bit hardware generated random number.
-STATIC mp_obj_t pyb_rng_get(void) {
-    if (RNGHandle.State == HAL_RNG_STATE_RESET) {
-        rng_init();
+    // Wait for a new random number to be ready, takes on the order of 10us
+    uint32_t start = HAL_GetTick();
+    #if defined(RNG_CR_CONDRST)
+    uint8_t retry_count = 0;
+    #endif
+    while (!(RNG->SR & RNG_SR_DRDY)) {
+        if (HAL_GetTick() - start >= RNG_TIMEOUT_MS) {
+            #if defined(RNG_CR_CONDRST)
+            if (retry_count <= RNG_RETRY_MAX_COUNT) {
+                // Reset and retry waiting RNG_SR_DRDY.
+                RNG->CR |= RNG_CR_CONDRST;
+                RNG->CR = (RNG->CR & ~RNG_CR_CONDRST);
+                start = HAL_GetTick();
+                retry_count++;
+                continue;
+            }
+            #endif
+            mp_raise_msg(&mp_type_OSError, MP_ERROR_TEXT("RNG failed"));
+        }
     }
-    return mp_obj_new_int(HAL_RNG_GetRandomNumber(&RNGHandle) >> 2);
+
+    // Get and return the new random number
+    return RNG->DR;
 }
 
+// Return a 30-bit hardware generated random number.
+static mp_obj_t pyb_rng_get(void) {
+    return mp_obj_new_int(mp_hal_get_hw_random_u32() >> 2);
+}
 MP_DEFINE_CONST_FUN_OBJ_0(pyb_rng_get_obj, pyb_rng_get);
 
 #endif // MICROPY_HW_ENABLE_RNG

@@ -1,17 +1,19 @@
 # tests meminfo functions in micropython module
 
-import micropython
+try:
+    import micropython
 
-# these functions are not always available
-if not hasattr(micropython, 'mem_total'):
-    print('SKIP')
-else:
-    t = micropython.mem_total()
-    c = micropython.mem_current()
-    p = micropython.mem_peak()
+    micropython.mem_total
+except (ImportError, AttributeError):
+    print("SKIP")
+    raise SystemExit
 
-    l = list(range(10000))
+t = micropython.mem_total()
+c = micropython.mem_current()
+p = micropython.mem_peak()
 
-    print(micropython.mem_total() > t)
-    print(micropython.mem_current() > c)
-    print(micropython.mem_peak() > p)
+l = list(range(10000))
+
+print(micropython.mem_total() > t)
+print(micropython.mem_current() > c)
+print(micropython.mem_peak() > p)

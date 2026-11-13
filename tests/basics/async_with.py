@@ -1,4 +1,5 @@
 # test simple async with execution
+# requires: async
 
 class AContext:
     async def __aenter__(self):
@@ -27,3 +28,13 @@ try:
     o.send(None)
 except ValueError:
     print('ValueError')
+
+# test raising BaseException to make sure it is handled by the async-with
+async def h():
+    async with AContext():
+        raise BaseException
+o = h()
+try:
+    o.send(None)
+except BaseException:
+    print('BaseException')

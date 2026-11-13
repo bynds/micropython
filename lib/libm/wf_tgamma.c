@@ -24,7 +24,9 @@
 
 #include "math.h"
 #include "fdlibm.h"
+#ifndef _IEEE_LIBM
 #define _IEEE_LIBM 1
+#endif
 
 #ifdef __STDC__
 	float tgammaf(float x)
@@ -35,6 +37,10 @@
 {
         float y;
 	int local_signgam;
+	if (!isfinite(x)) {
+	  /* special cases: tgammaf(nan)=nan, tgammaf(inf)=inf, tgammaf(-inf)=nan */
+	  return x + INFINITY;
+	}
 	y = expf(__ieee754_lgammaf_r(x,&local_signgam));
 	if (local_signgam < 0) y = -y;
 #ifdef _IEEE_LIBM

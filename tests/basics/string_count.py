@@ -1,3 +1,9 @@
+try:
+    str.count
+except AttributeError:
+    print("SKIP")
+    raise SystemExit
+
 print("".count(""))
 print("".count("a"))
 print("a".count(""))
@@ -23,6 +29,7 @@ print("aaa".count("", 2))
 print("aaa".count("", 3))
 
 print("aaa".count("", 1, 2))
+print("aaa".count("", 2, 1))
 
 print("asdfasdfaaa".count("asdf", -100))
 print("asdfasdfaaa".count("asdf", -8))

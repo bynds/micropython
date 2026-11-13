@@ -1,11 +1,15 @@
 # test concurrent mutating access to a shared bytearray object
 #
 # MIT license; Copyright (c) 2016 Damien P. George on behalf of Pycom Ltd
+#
+# requires: bytearray
 
+import time
 import _thread
 
 # the shared bytearray
 ba = bytearray()
+
 
 # main thread function
 def th(n, lo, hi):
@@ -23,10 +27,11 @@ def th(n, lo, hi):
         global n_finished
         n_finished += 1
 
+
 lock = _thread.allocate_lock()
 n_thread = 4
 n_finished = 0
-n_repeat = 4 # use 40 for more stressful test (uses more heap)
+n_repeat = 4  # use 40 for more stressful test (uses more heap)
 
 # spawn threads
 for i in range(n_thread):
@@ -34,7 +39,7 @@ for i in range(n_thread):
 
 # busy wait for threads to finish
 while n_finished < n_thread:
-    pass
+    time.sleep(0)
 
 # check bytearray has correct contents
 print(len(ba))
@@ -42,4 +47,3 @@ count = [0 for _ in range(256)]
 for b in ba:
     count[b] += 1
 print(count)
-

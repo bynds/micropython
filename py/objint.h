@@ -31,14 +31,14 @@
 
 typedef struct _mp_obj_int_t {
     mp_obj_base_t base;
-#if MICROPY_LONGINT_IMPL == MICROPY_LONGINT_IMPL_LONGLONG
+    #if MICROPY_LONGINT_IMPL == MICROPY_LONGINT_IMPL_LONGLONG
     mp_longint_impl_t val;
-#elif MICROPY_LONGINT_IMPL == MICROPY_LONGINT_IMPL_MPZ
+    #elif MICROPY_LONGINT_IMPL == MICROPY_LONGINT_IMPL_MPZ
     mpz_t mpz;
-#endif
+    #endif
 } mp_obj_int_t;
 
-extern const mp_obj_int_t mp_maxsize_obj;
+extern const mp_obj_int_t mp_sys_maxsize_obj;
 
 #if MICROPY_PY_BUILTINS_FLOAT
 mp_float_t mp_obj_int_as_float_impl(mp_obj_t self_in);
@@ -50,12 +50,15 @@ mp_obj_int_t *mp_obj_int_new_mpz(void);
 
 void mp_obj_int_print(const mp_print_t *print, mp_obj_t self_in, mp_print_kind_t kind);
 char *mp_obj_int_formatted(char **buf, size_t *buf_size, size_t *fmt_size, mp_const_obj_t self_in,
-                           int base, const char *prefix, char base_char, char comma);
+    int base, const char *prefix, char base_char, char comma);
 char *mp_obj_int_formatted_impl(char **buf, size_t *buf_size, size_t *fmt_size, mp_const_obj_t self_in,
-                                int base, const char *prefix, char base_char, char comma);
+    int base, const char *prefix, char base_char, char comma);
+
 mp_int_t mp_obj_int_hash(mp_obj_t self_in);
 mp_obj_t mp_obj_int_from_bytes_impl(bool big_endian, size_t len, const byte *buf);
-void mp_obj_int_to_bytes_impl(mp_obj_t self_in, bool big_endian, size_t len, byte *buf);
+// Write an integer to a byte sequence.
+// If overflow_check is true, raises OverflowError if 'self_in' doesn't fit. If false, truncate to fit.
+void mp_obj_int_to_bytes(mp_obj_t self_in, size_t buf_len, byte *buf, bool big_endian, bool is_signed, bool overflow_check);
 int mp_obj_int_sign(mp_obj_t self_in);
 mp_obj_t mp_obj_int_unary_op(mp_unary_op_t op, mp_obj_t o_in);
 mp_obj_t mp_obj_int_binary_op(mp_binary_op_t op, mp_obj_t lhs_in, mp_obj_t rhs_in);

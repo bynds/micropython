@@ -1,17 +1,21 @@
 import sys
+
 try:
     sys.exc_info
 except:
     print("SKIP")
     raise SystemExit
 
+
 def f():
-    print(sys.exc_info()[0:2])
+    e = sys.exc_info()
+    print(e[0], e[1])
+
 
 try:
-    1/0
+    raise ValueError("value", 123)
 except:
-    print(sys.exc_info()[0:2])
+    print(sys.exc_info()[0], sys.exc_info()[1])
     f()
 
 # Outside except block, sys.exc_info() should be back to None's

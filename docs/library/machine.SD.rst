@@ -1,8 +1,13 @@
 .. currentmodule:: machine
 .. _machine.SD:
 
-class SD -- secure digital memory card
-======================================
+class SD -- secure digital memory card (cc3200 port only)
+=========================================================
+
+.. warning::
+
+   This is a non-standard class and is only available on the cc3200 port.
+
 
 The SD card class allows to configure and enable the memory card
 module of the WiPy and automatically mount it as ``/sd`` as part
@@ -15,11 +20,11 @@ more info regarding the pins which can be remapped to be used with a SD card.
 Example usage::
 
     from machine import SD
-    import os
+    import vfs
     # clk cmd and dat0 pins must be passed along with
     # their respective alternate functions
     sd = machine.SD(pins=('GP10', 'GP11', 'GP15'))
-    os.mount(sd, '/sd')
+    vfs.mount(sd, '/sd')
     # do normal file operations
 
 Constructors
@@ -27,7 +32,7 @@ Constructors
 
 .. class:: SD(id,... )
 
-   Create a SD card object. See ``init()`` for parameters if initialization. 
+   Create a SD card object. See ``init()`` for parameters if initialization.
 
 Methods
 -------

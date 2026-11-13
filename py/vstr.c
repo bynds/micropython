@@ -4,6 +4,7 @@
  * The MIT License (MIT)
  *
  * Copyright (c) 2013, 2014 Damien P. George
+ * Copyright (c) 2014 Paul Sokolovsky
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -103,7 +104,7 @@ char *vstr_extend(vstr_t *vstr, size_t size) {
     return p;
 }
 
-STATIC void vstr_ensure_extra(vstr_t *vstr, size_t size) {
+static void vstr_ensure_extra(vstr_t *vstr, size_t size) {
     if (vstr->len + size > vstr->alloc) {
         if (vstr->fixed_buf) {
             // We can't reallocate, and the caller is expecting the space to
@@ -139,37 +140,37 @@ char *vstr_null_terminated_str(vstr_t *vstr) {
 }
 
 void vstr_add_byte(vstr_t *vstr, byte b) {
-    byte *buf = (byte*)vstr_add_len(vstr, 1);
+    byte *buf = (byte *)vstr_add_len(vstr, 1);
     buf[0] = b;
 }
 
 void vstr_add_char(vstr_t *vstr, unichar c) {
-#if MICROPY_PY_BUILTINS_STR_UNICODE
+    #if MICROPY_PY_BUILTINS_STR_UNICODE
     // TODO: Can this be simplified and deduplicated?
     // Is it worth just calling vstr_add_len(vstr, 4)?
     if (c < 0x80) {
-        byte *buf = (byte*)vstr_add_len(vstr, 1);
+        byte *buf = (byte *)vstr_add_len(vstr, 1);
         *buf = (byte)c;
     } else if (c < 0x800) {
-        byte *buf = (byte*)vstr_add_len(vstr, 2);
+        byte *buf = (byte *)vstr_add_len(vstr, 2);
         buf[0] = (c >> 6) | 0xC0;
         buf[1] = (c & 0x3F) | 0x80;
     } else if (c < 0x10000) {
-        byte *buf = (byte*)vstr_add_len(vstr, 3);
+        byte *buf = (byte *)vstr_add_len(vstr, 3);
         buf[0] = (c >> 12) | 0xE0;
         buf[1] = ((c >> 6) & 0x3F) | 0x80;
         buf[2] = (c & 0x3F) | 0x80;
     } else {
         assert(c < 0x110000);
-        byte *buf = (byte*)vstr_add_len(vstr, 4);
+        byte *buf = (byte *)vstr_add_len(vstr, 4);
         buf[0] = (c >> 18) | 0xF0;
         buf[1] = ((c >> 12) & 0x3F) | 0x80;
         buf[2] = ((c >> 6) & 0x3F) | 0x80;
         buf[3] = (c & 0x3F) | 0x80;
     }
-#else
+    #else
     vstr_add_byte(vstr, c);
-#endif
+    #endif
 }
 
 void vstr_add_str(vstr_t *vstr, const char *str) {
@@ -182,31 +183,19 @@ void vstr_add_strn(vstr_t *vstr, const char *str, size_t len) {
     vstr->len += len;
 }
 
-STATIC char *vstr_ins_blank_bytes(vstr_t *vstr, size_t byte_pos, size_t byte_len) {
+char *vstr_ins_blank_bytes(vstr_t *vstr, size_t byte_pos, size_t byte_len) {
     size_t l = vstr->len;
     if (byte_pos > l) {
         byte_pos = l;
     }
-    if (byte_len > 0) {
-        // ensure room for the new bytes
-        vstr_ensure_extra(vstr, byte_len);
-        // copy up the string to make room for the new bytes
-        memmove(vstr->buf + byte_pos + byte_len, vstr->buf + byte_pos, l - byte_pos);
-        // increase the length
-        vstr->len += byte_len;
-    }
+    // ensure room for the new bytes
+    vstr_ensure_extra(vstr, byte_len);
+    // copy up the string to make room for the new bytes
+    memmove(vstr->buf + byte_pos + byte_len, vstr->buf + byte_pos, l - byte_pos);
+    // increase the length
+    vstr->len += byte_len;
+    // return a pointer to the location to insert new bytes at
     return vstr->buf + byte_pos;
-}
-
-void vstr_ins_byte(vstr_t *vstr, size_t byte_pos, byte b) {
-    char *s = vstr_ins_blank_bytes(vstr, byte_pos, 1);
-    *s = b;
-}
-
-void vstr_ins_char(vstr_t *vstr, size_t char_pos, unichar chr) {
-    // TODO UNICODE
-    char *s = vstr_ins_blank_bytes(vstr, char_pos, 1);
-    *s = chr;
 }
 
 void vstr_cut_head_bytes(vstr_t *vstr, size_t bytes_to_cut) {

@@ -81,6 +81,7 @@
 #define MP_EHOSTUNREACH     (113) // No route to host
 #define MP_EALREADY         (114) // Operation already in progress
 #define MP_EINPROGRESS      (115) // Operation now in progress
+#define MP_ECANCELED        (125) // Operation canceled
 
 #else
 
@@ -122,7 +123,7 @@
 #define MP_EPIPE            EPIPE
 #define MP_EDOM             EDOM
 #define MP_ERANGE           ERANGE
-#define MP_EWOULDBLOCK      EAGAIN
+#define MP_EWOULDBLOCK      EWOULDBLOCK
 #define MP_EOPNOTSUPP       EOPNOTSUPP
 #define MP_EAFNOSUPPORT     EAFNOSUPPORT
 #define MP_EADDRINUSE       EADDRINUSE
@@ -136,10 +137,11 @@
 #define MP_EHOSTUNREACH     EHOSTUNREACH
 #define MP_EALREADY         EALREADY
 #define MP_EINPROGRESS      EINPROGRESS
+#define MP_ECANCELED        ECANCELED
 
 #endif
 
-#if MICROPY_PY_UERRNO
+#if MICROPY_PY_ERRNO
 
 #include "py/obj.h"
 

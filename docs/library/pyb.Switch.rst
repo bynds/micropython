@@ -23,7 +23,7 @@ Example::
 Constructors
 ------------
 
-.. class:: pyb.Switch()
+.. class:: Switch()
 
    Create and return a switch object.
 
@@ -38,7 +38,7 @@ Methods
 
 .. method:: Switch.value()
 
-   Get the switch state.  Returns `True` if pressed down, otherwise `False`.
+   Get the switch state.  Returns ``True`` if pressed down, otherwise ``False``.
 
 .. method:: Switch.callback(fun)
 
